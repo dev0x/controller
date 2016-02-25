@@ -1,4 +1,4 @@
-/* Copyright (C) 2014-2016 by Jacob Alexander
+/* Copyright (C) 2014-2015 by Jacob Alexander
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,28 +23,32 @@
 
 // ----- Includes -----
 
-// Compiler Includes
-#include <stdint.h>
+// Project Includes
+#include <matrix_setup.h>
 
 
 
-// ----- Functions -----
+// ----- Matrix Definition -----
 
-// Functions to be called by main.c
-void Scan_setup( void );
-uint8_t Scan_loop( void );
+// Freescale ARM MK20's support GPIO PTA, PTB, PTC, PTD and PTE 0..31
+// Not all chips have access to all of these pins (most don't have 160 pins :P)
+//
+// NOTE:
+// Before using a pin, make sure it supports being a GPIO *and* doesn't have a default pull-up/pull-down
+// Checking this is completely on the ownness of the user
 
-// Call-backs
-void Scan_finishedWithMacro( uint8_t sentKeys );  // Called by Macro Module
-void Scan_finishedWithOutput( uint8_t sentKeys ); // Called by Output Module
+//
+// Columns (Strobe)  //  PTB0..3,16,17 PTC4,5 PTD0
+// Rows	   (Sense)   //  PTD1..7
 
-void Scan_currentChange( unsigned int current ); // Called by Output Module
+// Define Rows (Sense) and Columns (Strobes)
+GPIO_Pin Matrix_cols[] = { gpio(B,0), gpio(B,1), gpio(B,2), gpio(B,3), gpio(B,16), gpio(B,17), gpio(C,4), gpio(C,6), gpio(D,0) };
+GPIO_Pin Matrix_rows[] = { gpio(D,1), gpio(D,2), gpio(D,3), gpio(D,4), gpio(D,5), gpio(D,6), gpio(D,7) };
+
+// Define type of scan matrix
+Config Matrix_type = Config_Pulldown;
 
 
-// ----- Capabilities -----
-
-// Example capabilities
-void CustomAction_action1_capability( uint8_t state, uint8_t stateType, uint8_t *args );
-void CustomAction_blockHold_capability( uint8_t state, uint8_t stateType, uint8_t *args );
-void CustomAction_blockKey_capability( uint8_t state, uint8_t stateType, uint8_t *args );
-
+// Define this if your matrix has ghosting (i.e. regular keyboard without diodes)
+// this will enable the anti-ghosting code
+#define GHOSTING_MATRIX

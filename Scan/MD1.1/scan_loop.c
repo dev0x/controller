@@ -26,7 +26,6 @@
 
 // Project Includes
 #include <cli.h>
-#include <connect_scan.h>
 #include <led.h>
 #include <led_scan.h>
 #include <print.h>
@@ -53,9 +52,6 @@ uint16_t Scan_scanCount = 0;
 // Setup
 inline void Scan_setup()
 {
-	// Setup UART Connect, if Output_Available, this is the master node
-	Connect_setup( Output_Available );
-
 	// Setup GPIO pins for matrix scanning
 	Matrix_setup();
 
@@ -70,11 +66,7 @@ inline void Scan_setup()
 // Main Detection Loop
 inline uint8_t Scan_loop()
 {
-	// Scan Matrix
 	Matrix_scan( Scan_scanCount++ );
-
-	// Process any interconnect commands
-	Connect_scan();
 
 	// Process any LED events
 	LED_scan();
@@ -103,8 +95,84 @@ inline void Scan_finishedWithOutput( uint8_t sentKeys )
 void Scan_currentChange( unsigned int current )
 {
 	// Indicate to all submodules current change
-	Connect_currentChange( current );
 	Matrix_currentChange( current );
 	LED_currentChange( current );
+}
+
+
+
+// ----- Capabilities -----
+
+// Custom capability examples
+// Refer to kll.h in Macros/PartialMap for state and stateType information
+void CustomAction_action1_capability( uint8_t state, uint8_t stateType, uint8_t *args )
+{
+	// Display capability name
+	// XXX This is required for debug cli to give you a list of capabilities
+	if ( stateType == 0xFF && state == 0xFF )
+	{
+		print("CustomAction_action1_capability()");
+		return;
+	}
+
+	// Prints Action1 info message to the debug cli
+	info_print("Action1");
+}
+
+uint8_t CustomAction_blockHold_storage = 0;
+void CustomAction_blockHold_capability( uint8_t state, uint8_t stateType, uint8_t *args )
+{
+	// Display capability name
+	if ( stateType == 0xFF && state == 0xFF )
+	{
+		print("CustomAction_blockHold_capability(usbCode)");
+		return;
+	}
+
+	// Retrieve 8-bit argument
+	uint8_t key = args[0];
+
+	// We only care about normal keys
+	if ( stateType == 0x00 )
+	{
+		// Block given key if we're in the "Press" or "Hold" state
+		if ( ( state == 0x01 || state == 0x02 )
+			&& CustomAction_blockHold_storage == 0 )
+		{
+			CustomAction_blockHold_storage = key;
+			info_msg("Blocking Key: ");
+			printHex( key );
+			print( NL );
+		}
+		// Release if in the "Off" or "Release" state and we're blocking
+		else if ( ( state == 0x00 || state == 0x03 )
+			&& key == CustomAction_blockHold_storage )
+		{
+			info_msg("Unblocking Key: ");
+			printHex( CustomAction_blockHold_storage );
+			print( NL );
+			CustomAction_blockHold_storage = 0;
+		}
+	}
+}
+
+void CustomAction_blockKey_capability( uint8_t state, uint8_t stateType, uint8_t *args )
+{
+	// Display capability name
+	if ( stateType == 0xFF && state == 0xFF )
+	{
+		print("CustomAction_blockKey_capability(usbCode)");
+		return;
+	}
+
+	// Retrieve 8-bit argument
+	uint8_t key = args[0];
+
+	// If key is not blocked, process
+	if ( key != CustomAction_blockHold_storage )
+	{
+		extern void Output_usbCodeSend_capability( uint8_t state, uint8_t stateType, uint8_t *args );
+		Output_usbCodeSend_capability( state, stateType, &key );
+	}
 }
 
